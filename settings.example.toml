@@ -1,0 +1,28 @@
+[webdriver]
+url = "http://localhost:4444/wd/hub"
+profile_path = "/home/seluser/.config/chrome"
+
+[twitter]
+user = "your_username"
+
+[storage]
+downloads_dir = "downloads"
+selector_cache = "selector_cache.json"
+
+[behavior]
+scroll_wait_min = 5.0
+scroll_wait_max = 8.0
+scroll_pixels_min = 2500
+scroll_pixels_max = 4000
+scroll_pixels_max_limit = 10000
+scroll_growth_factor = 1.3
+mouse_steps_min = 30
+mouse_steps_max = 60
+max_retries = 3
+retry_wait = 15.0
+vision_check_interval = 5
+page_load_wait = 10.0
+image_download_timeout = 30
+
+[logging]
+level = "INFO"

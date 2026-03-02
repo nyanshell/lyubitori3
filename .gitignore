@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+downloads/
+chrome_profile/
+settings.toml
+selector_cache.json
+debug_screenshots/
+debug_html/
+*.egg-info/
+dist/
+build/
+.ruff_cache/
+AGENT.md

@@ -5,7 +5,15 @@ requires-python = ">=3.14"
 dependencies = [
     "selenium>=4.27",
     "requests>=2.32",
+    "click>=8.1",
+    "python-dotenv[cli]>=1.0",
 ]
+
+[project.scripts]
+fav-collector = "fav_collector.cli:main"
+
+[tool.setuptools]
+packages = ["fav_collector"]
 
 [tool.ruff]
 target-version = "py314"

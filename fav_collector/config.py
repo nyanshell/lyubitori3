@@ -1,87 +1,42 @@
 import logging
-import tomllib
+import os
 from pathlib import Path
 
-_DEFAULTS = {
-    "webdriver": {
-        "url": "http://localhost:4444/wd/hub",
-        "profile_path": "/home/seluser/.config/chrome",
-    },
-    "twitter": {
-        "user": "",
-    },
-    "storage": {
-        "downloads_dir": "downloads",
-        "selector_cache": "selector_cache.json",
-    },
-    "behavior": {
-        "scroll_wait_min": 5.0,
-        "scroll_wait_max": 8.0,
-        "scroll_pixels_min": 512,
-        "scroll_pixels_max": 2048,
-        "scroll_pixels_max_limit": 10000,
-        "scroll_growth_factor": 1.1,
-        "mouse_steps_min": 30,
-        "mouse_steps_max": 60,
-        "max_retries": 3,
-        "retry_wait": 15.0,
-        "vision_check_interval": 5,
-        "page_load_wait": 10.0,
-        "image_download_timeout": 30,
-    },
-    "logging": {
-        "level": "INFO",
-    },
-}
 
-_SETTINGS_FILE = Path("settings.toml")
+def _env(key: str, default: str) -> str:
+    return os.environ.get(key, default)
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
-    result = base.copy()
-    for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _deep_merge(result[key], value)
-        else:
-            result[key] = value
-    return result
+def _env_int(key: str, default: int) -> int:
+    return int(os.environ.get(key, default))
 
 
-def _load() -> dict:
-    settings = _DEFAULTS.copy()
-    if _SETTINGS_FILE.exists():
-        with open(_SETTINGS_FILE, "rb") as f:
-            user_settings = tomllib.load(f)
-        settings = _deep_merge(settings, user_settings)
-    return settings
+def _env_float(key: str, default: float) -> float:
+    return float(os.environ.get(key, default))
 
 
-_cfg = _load()
+WEBDRIVER_URL = _env("WEBDRIVER_URL", "http://localhost:4444/wd/hub")
+CHROME_PROFILE_PATH = _env("CHROME_PROFILE_PATH", "/home/seluser/.config/chrome")
 
-WEBDRIVER_URL: str = _cfg["webdriver"]["url"]
-CHROME_PROFILE_PATH: str = _cfg["webdriver"]["profile_path"]
+TWITTER_USER = _env("TWITTER_USER", "")
+LIKES_URL = f"https://x.com/{TWITTER_USER}/likes"
 
-TWITTER_USER: str = _cfg["twitter"]["user"]
-LIKES_URL: str = f"https://x.com/{TWITTER_USER}/likes"
+DOWNLOADS_DIR = Path(_env("DOWNLOADS_DIR", "downloads"))
 
-DOWNLOADS_DIR: Path = Path(_cfg["storage"]["downloads_dir"])
-SELECTOR_CACHE_FILE: Path = Path(_cfg["storage"]["selector_cache"])
+SCROLL_WAIT_MIN = _env_float("SCROLL_WAIT_MIN", 5.0)
+SCROLL_WAIT_MAX = _env_float("SCROLL_WAIT_MAX", 8.0)
+SCROLL_PIXELS_MIN = _env_int("SCROLL_PIXELS_MIN", 2500)
+SCROLL_PIXELS_MAX = _env_int("SCROLL_PIXELS_MAX", 4000)
+SCROLL_PIXELS_MAX_LIMIT = _env_int("SCROLL_PIXELS_MAX_LIMIT", 10000)
+SCROLL_GROWTH_FACTOR = _env_float("SCROLL_GROWTH_FACTOR", 1.3)
+MOUSE_STEPS_MIN = _env_int("MOUSE_STEPS_MIN", 30)
+MOUSE_STEPS_MAX = _env_int("MOUSE_STEPS_MAX", 60)
+MAX_RETRIES = _env_int("MAX_RETRIES", 3)
+RETRY_WAIT = _env_float("RETRY_WAIT", 15.0)
+PAGE_LOAD_WAIT = _env_float("PAGE_LOAD_WAIT", 10.0)
+IMAGE_DOWNLOAD_TIMEOUT = _env_int("IMAGE_DOWNLOAD_TIMEOUT", 30)
 
-SCROLL_WAIT_MIN: float = _cfg["behavior"]["scroll_wait_min"]
-SCROLL_WAIT_MAX: float = _cfg["behavior"]["scroll_wait_max"]
-SCROLL_PIXELS_MIN: int = _cfg["behavior"]["scroll_pixels_min"]
-SCROLL_PIXELS_MAX: int = _cfg["behavior"]["scroll_pixels_max"]
-SCROLL_PIXELS_MAX_LIMIT: int = _cfg["behavior"]["scroll_pixels_max_limit"]
-SCROLL_GROWTH_FACTOR: float = _cfg["behavior"]["scroll_growth_factor"]
-MOUSE_STEPS_MIN: int = _cfg["behavior"]["mouse_steps_min"]
-MOUSE_STEPS_MAX: int = _cfg["behavior"]["mouse_steps_max"]
-MAX_RETRIES: int = _cfg["behavior"]["max_retries"]
-RETRY_WAIT: float = _cfg["behavior"]["retry_wait"]
-VISION_CHECK_INTERVAL: int = _cfg["behavior"]["vision_check_interval"]
-PAGE_LOAD_WAIT: float = _cfg["behavior"]["page_load_wait"]
-IMAGE_DOWNLOAD_TIMEOUT: int = _cfg["behavior"]["image_download_timeout"]
+LOG_LEVEL = getattr(logging, _env("LOG_LEVEL", "INFO").upper(), logging.INFO)
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
-LOG_LEVEL: int = getattr(logging, _cfg["logging"]["level"].upper(), logging.INFO)
-LOG_FORMAT: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-
-MAX_STALE: int = 5000
+MAX_STALE = _env_int("MAX_STALE", 5000)

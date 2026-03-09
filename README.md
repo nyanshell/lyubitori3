@@ -15,9 +15,9 @@ Connects to a `selenium/standalone-chrome` Docker container via Selenium Grid, s
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install selenium requests
-cp settings.example.toml settings.toml
-# Edit settings.toml with your values
+pip install -e .
+cp .env.example .env
+# Edit .env with your values
 ```
 
 ## Container Setup
@@ -86,7 +86,7 @@ Replace `<NIC>` with your physical interface, `<CONTAINER_IP>` with the IP assig
 ## First Run
 
 1. Start the container
-2. Run the script: `python -m fav_collector`
+2. Run the crawler: `dotenv run -- python -m fav_collector.cli`
 3. Connect to VNC at `http://<CONTAINER_IP>:7900`
 4. Log in to Twitter/X in the Chrome window opened by Selenium
 5. Stop the script (Ctrl+C), then restart it - the login persists via `--user-data-dir`
@@ -95,33 +95,36 @@ Replace `<NIC>` with your physical interface, `<CONTAINER_IP>` with the IP assig
 
 ```bash
 source .venv/bin/activate
-python -m fav_collector
+dotenv run -- python -m fav_collector.cli --max-stale 100
 ```
 
-The crawler will:
-- Attach to an existing Selenium session if one is active, or create a new one
-- Navigate to the configured user's likes page
-- Scroll down with human-like mouse movements (Bezier curves) and smooth scrolling
-- Extract tweet images, clean URLs to original resolution, download and deduplicate by hash
-- Save images and JSON metadata to `downloads/`
-- Adaptively increase scroll distance when no new images are found
+Or via the installed entry point:
+
+```bash
+dotenv run -- fav-collector --max-stale 100
+```
+
+### CLI Options
+
+```
+--max-stale INT     Stop after N cycles with no new images (default: 5000)
+--user TEXT         Twitter username (overrides TWITTER_USER env)
+--downloads-dir PATH  Directory to save images (overrides DOWNLOADS_DIR env)
+--scroll-min INT    Min scroll pixels per cycle (overrides SCROLL_PIXELS_MIN env)
+--scroll-max INT    Max scroll pixels per cycle (overrides SCROLL_PIXELS_MAX env)
+--log-level TEXT    Log level: DEBUG, INFO, WARNING, ERROR (overrides LOG_LEVEL env)
+--help              Show help message
+```
 
 ## Configuration
 
 Copy the example and edit:
 
 ```bash
-cp settings.example.toml settings.toml
+cp .env.example .env
 ```
 
-Then edit `settings.toml` with your values (this file is gitignored):
-
-```toml
-[twitter]
-user = "your_username"
-```
-
-See `settings.example.toml` for all available options.
+Then edit `.env` with your values (this file is gitignored). See `.env.example` for all available environment variables.
 
 ## Output
 
@@ -143,6 +146,20 @@ Each image has a companion `.json` file with metadata:
     "hash": "md5hash",
     "download_time": 1772420307
 }
+```
+
+## Cron Job
+
+Run the crawler every 6 hours:
+
+```bash
+crontab -e
+```
+
+Add the following line:
+
+```cron
+0 */6 * * * /path/to/fav_collector_vnc/.venv/bin/dotenv -f /path/to/fav_collector_vnc/.env run -- /path/to/fav_collector_vnc/.venv/bin/python /path/to/fav_collector_vnc/fav_collector/cli.py --max-stale 100 --downloads-dir /path/to/fav_collector_vnc/downloads
 ```
 
 ## Linting

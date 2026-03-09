@@ -6,7 +6,7 @@ from pathlib import Path
 
 import requests
 
-from . import config
+from fav_collector import config
 
 log = logging.getLogger(__name__)
 

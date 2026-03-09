@@ -5,6 +5,7 @@ __pycache__/
 downloads/
 chrome_profile/
 settings.toml
+.env
 selector_cache.json
 debug_screenshots/
 debug_html/

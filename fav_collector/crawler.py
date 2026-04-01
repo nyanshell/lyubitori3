@@ -6,12 +6,22 @@ from pathlib import Path
 import requests as http_requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
 
 from fav_collector import config
 from fav_collector.human import human_scroll, random_mouse_jitter
-from fav_collector.storage import compute_hash, download_image, load_seen_hashes, save_image_and_meta
-from fav_collector.tweets import clean_url_to_orig, extract_image_urls, extract_meta, find_articles, has_video
+from fav_collector.storage import (
+    compute_hash,
+    download_image,
+    load_seen_hashes,
+    save_image_and_meta,
+)
+from fav_collector.tweets import (
+    clean_url_to_orig,
+    extract_image_urls,
+    extract_meta,
+    find_articles,
+    has_video,
+)
 
 DEBUG_SCREENSHOT_DIR = Path("debug_screenshots")
 DEBUG_HTML_DIR = Path("debug_html")
@@ -26,17 +36,31 @@ def setup_logging():
     )
 
 
-def _get_existing_session() -> tuple[str | None, dict]:
+def _grid_base_url() -> str:
     base_url = config.WEBDRIVER_URL.rstrip("/")
     if base_url.endswith("/wd/hub"):
         base_url = base_url[:-7]
+    return base_url
+
+
+def _get_existing_session() -> tuple[str | None, dict]:
+    base_url = _grid_base_url()
     try:
         status = http_requests.get(f"{base_url}/status", timeout=10).json()
         for node in status.get("value", {}).get("nodes", []):
             for slot in node.get("slots", []):
                 session = slot.get("session")
                 if session:
-                    return session["sessionId"], session.get("capabilities", {})
+                    sid = session["sessionId"]
+                    if sid == "reserved":
+                        raise RuntimeError(
+                            "Grid has a stuck 'reserved' slot. "
+                            "Restart the Selenium container to clear it "
+                            "(login is preserved via Chrome profile volume mount)."
+                        )
+                    return sid, session.get("capabilities", {})
+    except RuntimeError:
+        raise
     except Exception as exc:
         log.debug("Failed to query grid status: %s", exc)
     return None, {}
@@ -69,10 +93,9 @@ def create_driver() -> tuple[webdriver.Remote, bool]:
         except Exception as exc:
             log.warning("Session %s unusable (%s), creating new one", session_id, exc)
             try:
-                base_url = config.WEBDRIVER_URL.rstrip("/")
-                if base_url.endswith("/wd/hub"):
-                    base_url = base_url[:-7]
-                http_requests.delete(f"{base_url}/session/{session_id}", timeout=10)
+                http_requests.delete(
+                    f"{_grid_base_url()}/session/{session_id}", timeout=10
+                )
             except Exception:
                 pass
             time.sleep(2)
@@ -198,7 +221,12 @@ def process_articles(
 def run(max_stale: int):
     log.info("Starting fav collector (max_stale=%d)", max_stale)
 
-    driver, attached = create_driver()
+    try:
+        driver, attached = create_driver()
+    except Exception as exc:
+        raise RuntimeError(
+            f"Cannot connect to WebDriver at {config.WEBDRIVER_URL}: {exc}"
+        ) from exc
     seen_hashes = load_seen_hashes(config.DOWNLOADS_DIR)
 
     try:

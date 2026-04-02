@@ -13,4 +13,5 @@ debug_html/
 dist/
 build/
 .ruff_cache/
+.cache/
 AGENT.md

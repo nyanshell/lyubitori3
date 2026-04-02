@@ -4,26 +4,37 @@ import logging
 import time
 from pathlib import Path
 
+import diskcache
 import requests
 
 from fav_collector import config
 
 log = logging.getLogger(__name__)
 
+CACHE_DIR = Path(".cache/seen_hashes")
 
-def load_seen_hashes(downloads_dir: Path) -> set[str]:
-    seen: set[str] = set()
+
+def open_seen_cache() -> diskcache.Cache:
+    cache = diskcache.Cache(str(CACHE_DIR))
+    log.info("Opened seen-hashes cache (%d entries)", len(cache))
+    return cache
+
+
+def backfill_cache(cache: diskcache.Cache, downloads_dir: Path):
     if not downloads_dir.exists():
-        return seen
+        return
+    added = 0
     for json_file in downloads_dir.glob("*.json"):
         try:
             data = json.loads(json_file.read_text(encoding="utf-8"))
-            if "hash" in data:
-                seen.add(data["hash"])
+            h = data.get("hash")
+            if h and h not in cache:
+                cache.set(h, True)
+                added += 1
         except Exception:
             pass
-    log.info("Loaded %d previously downloaded image hashes", len(seen))
-    return seen
+    if added:
+        log.info("Backfilled %d hashes from existing downloads", added)
 
 
 def compute_hash(image_bytes: bytes) -> str:
@@ -57,6 +68,7 @@ def save_image_and_meta(
     url_used: str,
     image_hash: str,
     downloads_dir: Path,
+    cache: diskcache.Cache | None = None,
 ):
     downloads_dir.mkdir(parents=True, exist_ok=True)
 
@@ -80,5 +92,8 @@ def save_image_and_meta(
         json.dumps(full_meta, indent=4, ensure_ascii=False),
         encoding="utf-8",
     )
+
+    if cache is not None:
+        cache.set(image_hash, True)
 
     log.info("Saved %s", img_path.name)

@@ -3,6 +3,7 @@ import random
 import time
 from pathlib import Path
 
+import diskcache
 import requests as http_requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -10,9 +11,10 @@ from selenium.webdriver.chrome.options import Options
 from fav_collector import config
 from fav_collector.human import human_scroll, random_mouse_jitter
 from fav_collector.storage import (
+    backfill_cache,
     compute_hash,
     download_image,
-    load_seen_hashes,
+    open_seen_cache,
     save_image_and_meta,
 )
 from fav_collector.tweets import (
@@ -169,7 +171,7 @@ def handle_error(driver: webdriver.Remote):
 
 def process_articles(
     driver: webdriver.Remote,
-    seen_hashes: set[str],
+    seen_hashes: diskcache.Cache,
 ) -> int:
     articles = find_articles(driver)
     log.info("Found %d articles on page", len(articles))
@@ -208,8 +210,10 @@ def process_articles(
                 if image_hash in seen_hashes:
                     continue
 
-                seen_hashes.add(image_hash)
-                save_image_and_meta(image_bytes, meta, used_url, image_hash, config.DOWNLOADS_DIR)
+                save_image_and_meta(
+                    image_bytes, meta, used_url, image_hash,
+                    config.DOWNLOADS_DIR, cache=seen_hashes,
+                )
                 new_count += 1
         except Exception as exc:
             log.warning("Error processing article: %s", exc)
@@ -227,7 +231,8 @@ def run(max_stale: int):
         raise RuntimeError(
             f"Cannot connect to WebDriver at {config.WEBDRIVER_URL}: {exc}"
         ) from exc
-    seen_hashes = load_seen_hashes(config.DOWNLOADS_DIR)
+    seen_hashes = open_seen_cache()
+    backfill_cache(seen_hashes, config.DOWNLOADS_DIR)
 
     try:
         ensure_on_likes_page(driver)
@@ -280,6 +285,7 @@ def run(max_stale: int):
     except Exception as exc:
         log.exception("Fatal error: %s", exc)
     finally:
+        seen_hashes.close()
         if not attached:
             try:
                 driver.quit()
